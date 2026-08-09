@@ -29,7 +29,10 @@ def signup_business(data: BusinessSignupSchema):
         auth_response = supabase.auth.admin.create_user({
             "email": data.email,
             "password": data.password,
-            "email_confirm": True
+            "email_confirm": True,
+            "user_metadata": {
+                "full_name": data.admin_name
+            }
         })
         
         if not auth_response.user:
@@ -48,13 +51,13 @@ def signup_business(data: BusinessSignupSchema):
 
         business_id = biz_res.data[0]["id"]
 
-        # 3. யூசரை பிசினஸுடன் இணைக்க 'profiles' டேபிளில் பதிவு செய்தல்
-        supabase.table("profiles").insert({
-            "id": user_id,
+        # 3. profiles டேபிளுக்கு business_id-ஐ மட்டும் update செய்தல் 
+        # (ஏனெனில் டேட்டாபேஸ் ட்ரிகர் ஏற்கனவே row-ஐ உருவாக்கியிருக்கும்)
+        supabase.table("profiles").update({
             "business_id": business_id,
             "full_name": data.admin_name,
             "role": "admin"
-        }).execute()
+        }).eq("id", user_id).execute()
 
         return {
             "status": "success", 
@@ -63,8 +66,10 @@ def signup_business(data: BusinessSignupSchema):
         }
 
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
+        err_msg = str(e)
+        if hasattr(e, 'detail'):
+            err_msg = e.detail
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err_msg)
 
 class LoginSchema(BaseModel):
     email: str
