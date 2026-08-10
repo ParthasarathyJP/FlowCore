@@ -78,7 +78,7 @@ class LoginSchema(BaseModel):
 @router.post("/login")
 def login_user(data: LoginSchema):
     try:
-        # Supabase மூலம் யூசரை லாகின் செய்தல்
+        # 1. Supabase மூலம் யூசரை லாகின் செய்தல்
         response = supabase.auth.sign_in_with_password({
             "email": data.email,
             "password": data.password
@@ -87,9 +87,20 @@ def login_user(data: LoginSchema):
         if not response.user:
             raise HTTPException(status_code=400, detail="Invalid login credentials")
             
+        user_id = response.user.id
+
+        # 2. profiles அல்லது users டேபிளிலிருந்து business_id-ஐ பெறுதல்
+        profile_response = supabase.table("profiles").select("business_id").eq("id", user_id).execute()
+        
+        business_id = None
+        if profile_response.data and len(profile_response.data) > 0:
+            business_id = profile_response.data[0].get("business_id")
+
+        # 3. ரெஸ்பான்ஸில் business_id-ஐ சேர்த்து அனுப்புதல்
         return {
             "status": "success",
             "message": "Login successful",
+            "business_id": business_id,  # <-- இப்போது மொபைல் ஆப்பிற்கு business_id கிடைக்கும்
             "user": response.user,
             "session": response.session
         }
